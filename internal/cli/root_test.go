@@ -39,6 +39,33 @@ func withMockGit(t *testing.T) *mockRun {
 	return m
 }
 
+// mockExternal records external command calls.
+type mockExternal struct {
+	calls []struct {
+		name string
+		args []string
+	}
+	err error
+}
+
+func (m *mockExternal) run(name string, args ...string) error {
+	m.calls = append(m.calls, struct {
+		name string
+		args []string
+	}{name, args})
+	return m.err
+}
+
+// withMockExternal swaps git.RunExternal for a mock and restores it after.
+func withMockExternal(t *testing.T) *mockExternal {
+	t.Helper()
+	m := &mockExternal{}
+	orig := git.RunExternal
+	t.Cleanup(func() { git.RunExternal = orig })
+	git.RunExternal = m.run
+	return m
+}
+
 // captureStdout captures stdout during f() and returns it as a string.
 func captureStdout(t *testing.T, f func()) string {
 	t.Helper()
@@ -443,13 +470,80 @@ func TestRunTag_Create(t *testing.T) {
 	}
 }
 
+func TestRunPR_NoTitle(t *testing.T) {
+	m := withMockGit(t)
+	ext := withMockExternal(t)
+	withArgs(t, []string{"sg", "pr"})
+
+	if err := runPR(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should push first
+	if len(m.calls) != 1 {
+		t.Fatalf("expected 1 git call, got %d", len(m.calls))
+	}
+	push := m.calls[0]
+	if push[0] != "push" || push[1] != "-u" || push[2] != "origin" || push[3] != "HEAD" {
+		t.Errorf("expected [push -u origin HEAD], got %v", push)
+	}
+
+	// Should create PR with --fill-verbose
+	if len(ext.calls) != 1 {
+		t.Fatalf("expected 1 external call, got %d", len(ext.calls))
+	}
+	if ext.calls[0].name != "gh" {
+		t.Errorf("expected gh, got %s", ext.calls[0].name)
+	}
+	ghArgs := ext.calls[0].args
+	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--fill-verbose" {
+		t.Errorf("expected [pr create --fill-verbose], got %v", ghArgs)
+	}
+}
+
+func TestRunPR_WithTitle(t *testing.T) {
+	m := withMockGit(t)
+	ext := withMockExternal(t)
+	withArgs(t, []string{"sg", "pr", "Add new feature"})
+
+	if err := runPR(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should push
+	if len(m.calls) != 1 || m.calls[0][0] != "push" {
+		t.Errorf("expected push, got %v", m.calls)
+	}
+
+	// Should create PR with --title
+	ghArgs := ext.calls[0].args
+	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--title" || ghArgs[3] != "Add new feature" || ghArgs[4] != "--fill-verbose" {
+		t.Errorf("expected [pr create --title 'Add new feature' --fill-verbose], got %v", ghArgs)
+	}
+}
+
+func TestRunPR_PushFails(t *testing.T) {
+	m := withMockGit(t)
+	m.err = fmt.Errorf("push failed")
+	withMockExternal(t)
+	withArgs(t, []string{"sg", "pr"})
+
+	err := runPR()
+	if err == nil {
+		t.Fatal("expected error when push fails")
+	}
+	if !strings.Contains(err.Error(), "failed to push") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 // --- All commands registered ---
 
 func TestAllCommandsRegistered(t *testing.T) {
 	expected := []string{
 		"create", "get", "status", "add", "save", "diff", "log",
 		"branch", "new", "go", "fetch", "pull", "send",
-		"undo", "stash", "pop", "merge", "tag",
+		"undo", "stash", "pop", "merge", "tag", "pr",
 	}
 	for _, name := range expected {
 		if _, ok := commands[name]; !ok {

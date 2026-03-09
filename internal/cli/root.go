@@ -35,13 +35,14 @@ var commands = map[string]command{
 	"pop":    {runPop, "sg pop", "Restore the most recently stashed changes.\n\nEquivalent to: git stash pop"},
 	"merge":  {runMerge, "sg merge <branch>", "Merge another branch into the current branch.\n\nEquivalent to: git merge <branch>"},
 	"tag":    {runTag, "sg tag [name]", "List tags or create a new tag. Without arguments, lists all tags.\n\nEquivalent to: git tag [name]"},
+	"pr":     {runPR, "sg pr [\"title\"]", "Push the current branch and create a GitHub pull request.\nWithout arguments, creates a PR with title and body filled from commits.\nWith a title argument, uses that as the PR title.\n\nRequires: gh CLI (https://cli.github.com)\nEquivalent to: git push -u origin HEAD && gh pr create --fill-verbose"},
 }
 
 // commandOrder defines the display order for help output.
 var commandOrder = []string{
 	"create", "get", "status", "add", "save", "diff", "log",
 	"branch", "new", "go", "fetch", "pull", "send",
-	"undo", "stash", "pop", "merge", "tag",
+	"undo", "stash", "pop", "merge", "tag", "pr",
 }
 
 // short descriptions for the help listing
@@ -117,6 +118,7 @@ Commands:
   pop                Restore stashed changes
   merge <branch>     Merge a branch
   tag [name]         List or create tags
+  pr ["title"]       Push and create a GitHub pull request
   help [command]     Show help (or help for a command)
   version            Show version
 
