@@ -386,8 +386,9 @@ func TestRunSend(t *testing.T) {
 	if err := runSend(); err != nil {
 		t.Fatal(err)
 	}
-	if m.calls[0][0] != "push" {
-		t.Errorf("expected [push], got %v", m.calls)
+	args := m.calls[0]
+	if args[0] != "push" || args[1] != "-u" || args[2] != "origin" || args[3] != "HEAD" {
+		t.Errorf("expected [push -u origin HEAD], got %v", args)
 	}
 }
 
