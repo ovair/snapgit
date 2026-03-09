@@ -3,5 +3,5 @@ package cli
 import "snapgit/internal/git"
 
 func runBranch() error {
-	return git.RunGitCommand("branch")
+	return git.Run("branch")
 }

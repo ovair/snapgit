@@ -11,5 +11,5 @@ func runAdd() error {
 	if len(os.Args) < 3 {
 		return fmt.Errorf("usage: sg add <file|.>")
 	}
-	return git.RunGitCommand("add", os.Args[2])
+	return git.Run("add", os.Args[2])
 }

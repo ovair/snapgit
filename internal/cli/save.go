@@ -13,11 +13,11 @@ func runSave() error {
 
 	message := os.Args[2]
 
-	if err := git.RunGitCommand("add", "-A"); err != nil {
+	if err := git.Run("add", "-A"); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	if err := git.RunGitCommand("commit", "-m", message); err != nil {
+	if err := git.Run("commit", "-m", message); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 

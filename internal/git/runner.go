@@ -41,9 +41,12 @@ func ExitCode(err error) int {
 	return 1
 }
 
-// RunGitCommand executes a git command with signal forwarding
-// and exit code preservation.
-func RunGitCommand(args ...string) error {
+// Run is the function used to execute git commands.
+// It can be replaced in tests to avoid shelling out.
+var Run = run
+
+// run executes a git command with signal forwarding and exit code preservation.
+func run(args ...string) error {
 	path, err := resolveGit()
 	if err != nil {
 		return fmt.Errorf("git is not installed or not in PATH: %w", err)
@@ -84,3 +87,6 @@ func RunGitCommand(args ...string) error {
 	}
 	return nil
 }
+
+// RunGitCommand is an alias for backward compatibility.
+var RunGitCommand = Run
