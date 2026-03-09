@@ -20,6 +20,8 @@ func Execute() error {
 		return runGet()
 	case "status":
 		return runStatus()
+	case "add":
+		return runAdd()
 	case "save":
 		return runSave()
 	case "diff":
@@ -53,6 +55,7 @@ func printHelp() {
 	fmt.Println("  create           Create a new repository")
 	fmt.Println("  get <url>        Clone a repository")
 	fmt.Println("  status           Show repository status")
+	fmt.Println("  add <file|.>     Add file(s) to the next save")
 	fmt.Println("  save <message>   Save all changes")
 	fmt.Println("  diff             Show current changes")
 	fmt.Println("  log              Show commit history")
