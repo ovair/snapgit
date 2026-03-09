@@ -5,6 +5,23 @@ import (
 	"os"
 )
 
+// commands maps command names to their handler functions.
+var commands = map[string]func() error{
+	"create": runCreate,
+	"get":    runGet,
+	"status": runStatus,
+	"add":    runAdd,
+	"save":   runSave,
+	"diff":   runDiff,
+	"log":    runLog,
+	"branch": runBranch,
+	"new":    runNew,
+	"go":     runGo,
+	"fetch":  runFetch,
+	"pull":   runPull,
+	"send":   runSend,
+}
+
 func Execute() error {
 	if len(os.Args) < 2 {
 		printHelp()
@@ -13,39 +30,16 @@ func Execute() error {
 
 	command := os.Args[1]
 
-	switch command {
-	case "create":
-		return runCreate()
-	case "get":
-		return runGet()
-	case "status":
-		return runStatus()
-	case "add":
-		return runAdd()
-	case "save":
-		return runSave()
-	case "diff":
-		return runDiff()
-	case "log":
-		return runLog()
-	case "branch":
-		return runBranch()
-	case "new":
-		return runNew()
-	case "go":
-		return runGo()
-	case "fetch":
-		return runFetch()
-	case "pull":
-		return runPull()
-	case "send":
-		return runSend()
-	case "help":
+	if command == "help" {
 		printHelp()
 		return nil
-	default:
-		return fmt.Errorf("unknown command: %s", command)
 	}
+
+	fn, ok := commands[command]
+	if !ok {
+		return fmt.Errorf("unknown command: %s\nRun 'sg help' to see available commands", command)
+	}
+	return fn()
 }
 
 func printHelp() {
@@ -65,4 +59,5 @@ func printHelp() {
 	fmt.Println("  fetch            Fetch remote changes")
 	fmt.Println("  pull             Pull remote changes")
 	fmt.Println("  send             Push local commits")
+	fmt.Println("  help             Show this help message")
 }
