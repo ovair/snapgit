@@ -730,6 +730,52 @@ func TestRunAmend_NoMessage(t *testing.T) {
 	}
 }
 
+// --- release tests ---
+
+func TestRunRelease(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "release", "v0.3.0"})
+
+	if err := runRelease(); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.calls) != 2 {
+		t.Fatalf("expected 2 git calls, got %d", len(m.calls))
+	}
+	// First: git tag v0.3.0
+	if m.calls[0][0] != "tag" || m.calls[0][1] != "v0.3.0" {
+		t.Errorf("expected [tag v0.3.0], got %v", m.calls[0])
+	}
+	// Second: git push origin v0.3.0
+	if m.calls[1][0] != "push" || m.calls[1][1] != "origin" || m.calls[1][2] != "v0.3.0" {
+		t.Errorf("expected [push origin v0.3.0], got %v", m.calls[1])
+	}
+}
+
+func TestRunRelease_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "release"})
+
+	err := runRelease()
+	if err == nil {
+		t.Fatal("expected error when no version provided")
+	}
+}
+
+func TestRunRelease_TagFails(t *testing.T) {
+	m := withMockGit(t)
+	m.err = fmt.Errorf("tag exists")
+	withArgs(t, []string{"sg", "release", "v0.3.0"})
+
+	err := runRelease()
+	if err == nil {
+		t.Fatal("expected error when tag fails")
+	}
+	if !strings.Contains(err.Error(), "failed to create tag") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 // --- completions tests ---
 
 func TestRunCompletions_Bash(t *testing.T) {
@@ -807,7 +853,7 @@ func TestAllCommandsRegistered(t *testing.T) {
 		"branch", "new", "go", "fetch", "pull", "send",
 		"undo", "stash", "pop", "merge", "tag", "pr",
 		"rename", "delete", "ignore", "whoami", "remote", "amend",
-		"completions",
+		"release", "completions",
 	}
 	for _, name := range expected {
 		if _, ok := commands[name]; !ok {

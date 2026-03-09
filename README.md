@@ -69,6 +69,7 @@ go build -o sg ./cmd/sg
 | `sg whoami` | Show git user config | `git config user.name / user.email` |
 | `sg remote` | Show remote URLs | `git remote -v` |
 | `sg amend ["msg"]` | Amend last commit | `git commit --amend` |
+| `sg release <version>` | Tag and push a version | `git tag <v> && git push origin <v>` |
 | `sg completions <shell>` | Generate shell completions | — |
 
 ## Quick Example

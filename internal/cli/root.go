@@ -42,6 +42,7 @@ var commands = map[string]command{
 	"whoami": {runWhoami, "sg whoami", "Show the currently configured Git user name and email.\n\nEquivalent to: git config user.name / git config user.email"},
 	"remote": {runRemote, "sg remote", "Show remote repository URLs.\n\nEquivalent to: git remote -v"},
 	"amend":       {runAmend, "sg amend [\"message\"]", "Amend the last commit. With a message, rewrites the commit message.\nWithout arguments, adds staged changes to the last commit keeping the message.\n\nEquivalent to: git commit --amend -m \"message\" / git commit --amend --no-edit"},
+	"release":     {runRelease, "sg release <version>", "Create a version tag and push it to the remote.\nThis triggers your release pipeline (e.g. goreleaser).\n\nEquivalent to: git tag <version> && git push origin <version>"},
 	"completions": {runCompletions, "sg completions <shell>", "Generate shell completion scripts.\nSupported shells: bash, zsh, fish, powershell.\n\nUsage:\n  eval \"$(sg completions bash)\"   # bash\n  eval \"$(sg completions zsh)\"    # zsh\n  sg completions fish | source    # fish\n  sg completions powershell | Out-String | Invoke-Expression  # powershell"},
 }
 
@@ -51,7 +52,7 @@ var commandOrder = []string{
 	"branch", "new", "go", "fetch", "pull", "send",
 	"undo", "stash", "pop", "merge", "tag", "pr",
 	"rename", "delete", "ignore", "whoami", "remote", "amend",
-	"completions",
+	"release", "completions",
 }
 
 // short descriptions for the help listing
@@ -81,6 +82,7 @@ var shortDesc = map[string]string{
 	"whoami": "Show git user config",
 	"remote": "Show remote URLs",
 	"amend":       "Amend the last commit",
+	"release":     "Tag and push a version",
 	"completions": "Generate shell completions",
 }
 
