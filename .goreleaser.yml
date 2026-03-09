@@ -27,6 +27,16 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+brews:
+  - repository:
+      owner: ovair
+      name: homebrew-tap
+    homepage: https://github.com/ovair/snapgit
+    description: "Human-friendly Git CLI"
+    license: "MIT"
+    install: |
+      bin.install "sg"
+
 changelog:
   sort: asc
   filters:

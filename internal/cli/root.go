@@ -36,6 +36,13 @@ var commands = map[string]command{
 	"merge":  {runMerge, "sg merge <branch>", "Merge another branch into the current branch.\n\nEquivalent to: git merge <branch>"},
 	"tag":    {runTag, "sg tag [name]", "List tags or create a new tag. Without arguments, lists all tags.\n\nEquivalent to: git tag [name]"},
 	"pr":     {runPR, "sg pr [\"title\"]", "Push the current branch and create a GitHub pull request.\nWithout arguments, creates a PR with title and body filled from commits.\nWith a title argument, uses that as the PR title.\n\nRequires: gh CLI (https://cli.github.com)\nEquivalent to: git push -u origin HEAD && gh pr create --fill-verbose"},
+	"rename": {runRename, "sg rename <new-name>", "Rename the current branch.\n\nEquivalent to: git branch -m <new-name>"},
+	"delete": {runDelete, "sg delete <branch>", "Delete a local branch. Uses safe delete — fails if the branch has unmerged changes.\nCannot delete the branch you are currently on.\n\nEquivalent to: git branch -d <branch>"},
+	"ignore": {runIgnore, "sg ignore <pattern>", "Add a pattern to the .gitignore file at the repository root.\nCreates .gitignore if it does not exist.\n\nExample: sg ignore \"*.log\""},
+	"whoami": {runWhoami, "sg whoami", "Show the currently configured Git user name and email.\n\nEquivalent to: git config user.name / git config user.email"},
+	"remote": {runRemote, "sg remote", "Show remote repository URLs.\n\nEquivalent to: git remote -v"},
+	"amend":       {runAmend, "sg amend [\"message\"]", "Amend the last commit. With a message, rewrites the commit message.\nWithout arguments, adds staged changes to the last commit keeping the message.\n\nEquivalent to: git commit --amend -m \"message\" / git commit --amend --no-edit"},
+	"completions": {runCompletions, "sg completions <shell>", "Generate shell completion scripts.\nSupported shells: bash, zsh, fish, powershell.\n\nUsage:\n  eval \"$(sg completions bash)\"   # bash\n  eval \"$(sg completions zsh)\"    # zsh\n  sg completions fish | source    # fish\n  sg completions powershell | Out-String | Invoke-Expression  # powershell"},
 }
 
 // commandOrder defines the display order for help output.
@@ -43,6 +50,8 @@ var commandOrder = []string{
 	"create", "get", "status", "add", "save", "diff", "log",
 	"branch", "new", "go", "fetch", "pull", "send",
 	"undo", "stash", "pop", "merge", "tag", "pr",
+	"rename", "delete", "ignore", "whoami", "remote", "amend",
+	"completions",
 }
 
 // short descriptions for the help listing
@@ -65,6 +74,14 @@ var shortDesc = map[string]string{
 	"pop":    "Restore stashed changes",
 	"merge":  "Merge a branch",
 	"tag":    "List or create tags",
+	"pr":     "Push and create a pull request",
+	"rename": "Rename the current branch",
+	"delete": "Delete a local branch",
+	"ignore": "Add a pattern to .gitignore",
+	"whoami": "Show git user config",
+	"remote": "Show remote URLs",
+	"amend":       "Amend the last commit",
+	"completions": "Generate shell completions",
 }
 
 func Execute() error {
@@ -95,35 +112,22 @@ func Execute() error {
 }
 
 func printHelp() {
-	fmt.Print(`SnapGit (sg) — a human-friendly git CLI
+	fmt.Print("SnapGit (sg) — a human-friendly git CLI\n\nUsage: sg <command> [arguments]\n\nCommands:\n")
 
-Usage: sg <command> [arguments]
+	// Extract the argument hint from the usage string (e.g. "sg get <url>" -> "<url>")
+	for _, name := range commandOrder {
+		cmd := commands[name]
+		label := name
+		if usage := cmd.usage; len(usage) > len("sg "+name) {
+			label = name + " " + usage[len("sg "+name)+1:]
+		}
+		desc := shortDesc[name]
+		fmt.Printf("  %-20s %s\n", label, desc)
+	}
 
-Commands:
-  create             Create a new repository
-  get <url>          Clone a repository
-  status             Show repository status
-  add <file|.>       Add file(s) to the next save
-  save "message"     Save all changes
-  diff               Show current changes
-  log                Show commit history
-  branch             List branches
-  new <branch>       Create and switch to a new branch
-  go <branch>        Switch to a branch
-  fetch              Fetch remote changes
-  pull               Pull remote changes
-  send               Push local commits
-  undo               Undo the last commit (keep changes)
-  stash              Stash working changes
-  pop                Restore stashed changes
-  merge <branch>     Merge a branch
-  tag [name]         List or create tags
-  pr ["title"]       Push and create a GitHub pull request
-  help [command]     Show help (or help for a command)
-  version            Show version
-
-Run 'sg help <command>' for more details on a specific command.
-`)
+	fmt.Print("  help [command]       Show help (or help for a command)\n")
+	fmt.Print("  version              Show version\n")
+	fmt.Print("\nRun 'sg help <command>' for more details on a specific command.\n")
 }
 
 func printCommandHelp(name string) error {
