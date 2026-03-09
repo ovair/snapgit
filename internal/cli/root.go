@@ -5,6 +5,9 @@ import (
 	"os"
 )
 
+// Version is set at build time via ldflags.
+var Version = "dev"
+
 // commands maps command names to their handler functions.
 var commands = map[string]func() error{
 	"create": runCreate,
@@ -32,6 +35,11 @@ func Execute() error {
 
 	if command == "help" {
 		printHelp()
+		return nil
+	}
+
+	if command == "version" || command == "--version" || command == "-v" {
+		fmt.Println("sg version " + Version)
 		return nil
 	}
 
