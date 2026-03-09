@@ -29,7 +29,7 @@ var commands = map[string]command{
 	"go":     {runGo, "sg go <branch>", "Switch to an existing branch.\n\nEquivalent to: git switch <branch>"},
 	"fetch":  {runFetch, "sg fetch", "Download objects and refs from the remote without merging.\n\nEquivalent to: git fetch"},
 	"pull":   {runPull, "sg pull", "Fetch and merge remote changes into the current branch.\n\nEquivalent to: git pull"},
-	"send":   {runSend, "sg send", "Push local commits to the remote repository.\n\nEquivalent to: git push"},
+	"send":   {runSend, "sg send", "Push local commits to the remote repository.\nAutomatically sets the upstream for new branches.\n\nEquivalent to: git push -u origin HEAD"},
 	"undo":   {runUndo, "sg undo", "Undo the last commit but keep all changes staged.\n\nEquivalent to: git reset --soft HEAD~1"},
 	"stash":  {runStash, "sg stash", "Temporarily shelve changes in your working directory.\n\nEquivalent to: git stash"},
 	"pop":    {runPop, "sg pop", "Restore the most recently stashed changes.\n\nEquivalent to: git stash pop"},
