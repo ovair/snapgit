@@ -56,6 +56,28 @@ func (m *mockExternal) run(name string, args ...string) error {
 	return m.err
 }
 
+// mockOutput records git output calls and returns configurable output.
+type mockOutput struct {
+	calls  [][]string
+	output string
+	err    error
+}
+
+func (m *mockOutput) run(args ...string) (string, error) {
+	m.calls = append(m.calls, args)
+	return m.output, m.err
+}
+
+// withMockGitOutput swaps git.RunOutput for a mock and restores it after.
+func withMockGitOutput(t *testing.T, output string) *mockOutput {
+	t.Helper()
+	m := &mockOutput{output: output}
+	orig := git.RunOutput
+	t.Cleanup(func() { git.RunOutput = orig })
+	git.RunOutput = m.run
+	return m
+}
+
 // withMockExternal swaps git.RunExternal for a mock and restores it after.
 func withMockExternal(t *testing.T) *mockExternal {
 	t.Helper()
@@ -538,6 +560,245 @@ func TestRunPR_PushFails(t *testing.T) {
 	}
 }
 
+// --- rename tests ---
+
+func TestRunRename(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "rename", "new-name"})
+
+	if err := runRename(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "branch" || m.calls[0][1] != "-m" || m.calls[0][2] != "new-name" {
+		t.Errorf("expected [branch -m new-name], got %v", m.calls[0])
+	}
+}
+
+func TestRunRename_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "rename"})
+
+	err := runRename()
+	if err == nil {
+		t.Fatal("expected error when no name provided")
+	}
+}
+
+// --- delete tests ---
+
+func TestRunDelete(t *testing.T) {
+	m := withMockGit(t)
+	withMockGitOutput(t, "main\n")
+	withArgs(t, []string{"sg", "delete", "feature"})
+
+	if err := runDelete(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "branch" || m.calls[0][1] != "-d" || m.calls[0][2] != "feature" {
+		t.Errorf("expected [branch -d feature], got %v", m.calls[0])
+	}
+}
+
+func TestRunDelete_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "main\n")
+	withArgs(t, []string{"sg", "delete"})
+
+	err := runDelete()
+	if err == nil {
+		t.Fatal("expected error when no branch provided")
+	}
+}
+
+func TestRunDelete_CurrentBranch(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "feature\n")
+	withArgs(t, []string{"sg", "delete", "feature"})
+
+	err := runDelete()
+	if err == nil {
+		t.Fatal("expected error when deleting current branch")
+	}
+	if !strings.Contains(err.Error(), "cannot delete the current branch") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- ignore tests ---
+
+func TestRunIgnore(t *testing.T) {
+	dir := t.TempDir()
+	withMockGit(t)
+	withMockGitOutput(t, dir+"\n")
+	withArgs(t, []string{"sg", "ignore", "*.log"})
+
+	out := captureStdout(t, func() {
+		if err := runIgnore(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	if !strings.Contains(out, "*.log") {
+		t.Errorf("expected confirmation output, got: %s", out)
+	}
+
+	data, err := os.ReadFile(dir + "/.gitignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "*.log") {
+		t.Errorf("expected *.log in .gitignore, got: %s", string(data))
+	}
+}
+
+func TestRunIgnore_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "/tmp\n")
+	withArgs(t, []string{"sg", "ignore"})
+
+	err := runIgnore()
+	if err == nil {
+		t.Fatal("expected error when no pattern provided")
+	}
+}
+
+// --- whoami tests ---
+
+func TestRunWhoami(t *testing.T) {
+	withMockGit(t)
+	mo := withMockGitOutput(t, "")
+	// RunOutput is called twice: once for name, once for email
+	// Override with a func that returns different values per call
+	callCount := 0
+	git.RunOutput = func(args ...string) (string, error) {
+		mo.calls = append(mo.calls, args)
+		callCount++
+		if callCount == 1 {
+			return "Test User\n", nil
+		}
+		return "test@example.com\n", nil
+	}
+	withArgs(t, []string{"sg", "whoami"})
+
+	out := captureStdout(t, func() {
+		if err := runWhoami(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "Test User") || !strings.Contains(out, "test@example.com") {
+		t.Errorf("expected name and email, got: %s", out)
+	}
+}
+
+// --- remote tests ---
+
+func TestRunRemote(t *testing.T) {
+	m := withMockGit(t)
+	if err := runRemote(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "remote" || m.calls[0][1] != "-v" {
+		t.Errorf("expected [remote -v], got %v", m.calls[0])
+	}
+}
+
+// --- amend tests ---
+
+func TestRunAmend_WithMessage(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "amend", "fixed typo"})
+
+	if err := runAmend(); err != nil {
+		t.Fatal(err)
+	}
+	args := m.calls[0]
+	if args[0] != "commit" || args[1] != "--amend" || args[2] != "-m" || args[3] != "fixed typo" {
+		t.Errorf("expected [commit --amend -m 'fixed typo'], got %v", args)
+	}
+}
+
+func TestRunAmend_NoMessage(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "amend"})
+
+	if err := runAmend(); err != nil {
+		t.Fatal(err)
+	}
+	args := m.calls[0]
+	if args[0] != "commit" || args[1] != "--amend" || args[2] != "--no-edit" {
+		t.Errorf("expected [commit --amend --no-edit], got %v", args)
+	}
+}
+
+// --- completions tests ---
+
+func TestRunCompletions_Bash(t *testing.T) {
+	withArgs(t, []string{"sg", "completions", "bash"})
+	out := captureStdout(t, func() {
+		if err := runCompletions(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "complete") || !strings.Contains(out, "_sg_completions") {
+		t.Errorf("bash completion missing expected content: %s", out)
+	}
+}
+
+func TestRunCompletions_Zsh(t *testing.T) {
+	withArgs(t, []string{"sg", "completions", "zsh"})
+	out := captureStdout(t, func() {
+		if err := runCompletions(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "#compdef sg") {
+		t.Errorf("zsh completion missing #compdef: %s", out)
+	}
+}
+
+func TestRunCompletions_Fish(t *testing.T) {
+	withArgs(t, []string{"sg", "completions", "fish"})
+	out := captureStdout(t, func() {
+		if err := runCompletions(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "complete -c sg") {
+		t.Errorf("fish completion missing expected content: %s", out)
+	}
+}
+
+func TestRunCompletions_Powershell(t *testing.T) {
+	withArgs(t, []string{"sg", "completions", "powershell"})
+	out := captureStdout(t, func() {
+		if err := runCompletions(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "Register-ArgumentCompleter") {
+		t.Errorf("powershell completion missing expected content: %s", out)
+	}
+}
+
+func TestRunCompletions_UnsupportedShell(t *testing.T) {
+	withArgs(t, []string{"sg", "completions", "nushell"})
+	err := runCompletions()
+	if err == nil {
+		t.Fatal("expected error for unsupported shell")
+	}
+	if !strings.Contains(err.Error(), "unsupported shell") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunCompletions_NoArgs(t *testing.T) {
+	withArgs(t, []string{"sg", "completions"})
+	err := runCompletions()
+	if err == nil {
+		t.Fatal("expected error when no shell provided")
+	}
+}
+
 // --- All commands registered ---
 
 func TestAllCommandsRegistered(t *testing.T) {
@@ -545,6 +806,8 @@ func TestAllCommandsRegistered(t *testing.T) {
 		"create", "get", "status", "add", "save", "diff", "log",
 		"branch", "new", "go", "fetch", "pull", "send",
 		"undo", "stash", "pop", "merge", "tag", "pr",
+		"rename", "delete", "ignore", "whoami", "remote", "amend",
+		"completions",
 	}
 	for _, name := range expected {
 		if _, ok := commands[name]; !ok {
@@ -564,8 +827,33 @@ func TestCommandOrderMatchesCommands(t *testing.T) {
 	}
 }
 
+func TestShortDescMatchesCommands(t *testing.T) {
+	for name := range commands {
+		if _, ok := shortDesc[name]; !ok {
+			t.Errorf("command %q is missing from shortDesc map", name)
+		}
+	}
+	for name := range shortDesc {
+		if _, ok := commands[name]; !ok {
+			t.Errorf("shortDesc has %q which is not in commands map", name)
+		}
+	}
+}
+
 func TestVersionDefault(t *testing.T) {
 	if Version != "dev" {
 		t.Errorf("default Version = %q, want %q", Version, "dev")
+	}
+}
+
+func TestHelpContainsAllCommands(t *testing.T) {
+	withArgs(t, []string{"sg"})
+	out := captureStdout(t, func() {
+		_ = Execute()
+	})
+	for _, name := range commandOrder {
+		if !strings.Contains(out, name) {
+			t.Errorf("help output missing command %q", name)
+		}
 	}
 }

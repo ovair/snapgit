@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -41,29 +42,14 @@ func ExitCode(err error) int {
 	return 1
 }
 
-// Run is the function used to execute git commands.
-// It can be replaced in tests to avoid shelling out.
-var Run = run
-
-// run executes a git command with signal forwarding and exit code preservation.
-func run(args ...string) error {
-	path, err := resolveGit()
-	if err != nil {
-		return fmt.Errorf("git is not installed or not in PATH: %w", err)
-	}
-
-	cmd := exec.Command(path, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	// Forward interrupt signals to the child process.
+// execCmd runs a command with signal forwarding and exit code preservation.
+func execCmd(cmd *exec.Cmd) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 	defer signal.Stop(sigCh)
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start git: %w", err)
+		return fmt.Errorf("failed to start %s: %w", cmd.Path, err)
 	}
 
 	done := make(chan struct{})
@@ -75,7 +61,7 @@ func run(args ...string) error {
 		}
 	}()
 
-	err = cmd.Wait()
+	err := cmd.Wait()
 	close(done)
 
 	if err != nil {
@@ -86,6 +72,44 @@ func run(args ...string) error {
 		return err
 	}
 	return nil
+}
+
+// Run is the function used to execute git commands.
+// It can be replaced in tests to avoid shelling out.
+var Run = run
+
+func run(args ...string) error {
+	path, err := resolveGit()
+	if err != nil {
+		return fmt.Errorf("git is not installed or not in PATH: %w", err)
+	}
+
+	cmd := exec.Command(path, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return execCmd(cmd)
+}
+
+// RunOutput executes a git command and returns its stdout as a string.
+// It can be replaced in tests.
+var RunOutput = runOutput
+
+func runOutput(args ...string) (string, error) {
+	path, err := resolveGit()
+	if err != nil {
+		return "", fmt.Errorf("git is not installed or not in PATH: %w", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd := exec.Command(path, args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = os.Stderr
+
+	if err := execCmd(cmd); err != nil {
+		return "", err
+	}
+	return stdout.String(), nil
 }
 
 // RunExternal executes an arbitrary command (not git) with signal forwarding
@@ -102,36 +126,5 @@ func runExternal(name string, args ...string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
-	defer signal.Stop(sigCh)
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %w", name, err)
-	}
-
-	done := make(chan struct{})
-	go func() {
-		select {
-		case sig := <-sigCh:
-			_ = cmd.Process.Signal(sig)
-		case <-done:
-		}
-	}()
-
-	err = cmd.Wait()
-	close(done)
-
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return &ExitError{Code: exitErr.ExitCode(), Err: err}
-		}
-		return err
-	}
-	return nil
+	return execCmd(cmd)
 }
-
-// RunGitCommand is an alias for backward compatibility.
-var RunGitCommand = Run

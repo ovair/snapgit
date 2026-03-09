@@ -14,7 +14,13 @@ SnapGit (`sg`) is a CLI wrapper around Git that translates simple, intention-bas
 
 ## Install
 
-**Linux / macOS:**
+**Homebrew (macOS / Linux):**
+
+```bash
+brew install ovair/tap/sg
+```
+
+**Linux / macOS (script):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | sh
@@ -50,7 +56,20 @@ go build -o sg ./cmd/sg
 | `sg go <branch>` | Switch branch | `git switch <branch>` |
 | `sg fetch` | Fetch remote updates | `git fetch` |
 | `sg pull` | Pull remote changes | `git pull` |
-| `sg send` | Push to remote | `git push` |
+| `sg send` | Push to remote | `git push -u origin HEAD` |
+| `sg undo` | Undo last commit (keep changes) | `git reset --soft HEAD~1` |
+| `sg stash` | Stash working changes | `git stash` |
+| `sg pop` | Restore stashed changes | `git stash pop` |
+| `sg merge <branch>` | Merge a branch | `git merge <branch>` |
+| `sg tag [name]` | List or create tags | `git tag [name]` |
+| `sg pr ["title"]` | Push + create GitHub PR | `git push -u origin HEAD && gh pr create` |
+| `sg rename <name>` | Rename current branch | `git branch -m <name>` |
+| `sg delete <branch>` | Delete a local branch | `git branch -d <branch>` |
+| `sg ignore <pattern>` | Add pattern to .gitignore | *(file append)* |
+| `sg whoami` | Show git user config | `git config user.name / user.email` |
+| `sg remote` | Show remote URLs | `git remote -v` |
+| `sg amend ["msg"]` | Amend last commit | `git commit --amend` |
+| `sg completions <shell>` | Generate shell completions | — |
 
 ## Quick Example
 
@@ -69,7 +88,58 @@ sg new feature/dark-mode
 
 # Switch back
 sg go main
+
+# Rename your branch
+sg rename feature/dark-theme
+
+# Amend the last commit message
+sg amend "fix: correct login redirect"
+
+# See who you are
+sg whoami
+
+# Add a pattern to .gitignore
+sg ignore "*.log"
 ```
+
+## Shell Completions
+
+Generate completion scripts for your shell:
+
+**Bash:**
+
+```bash
+# Add to ~/.bashrc
+eval "$(sg completions bash)"
+```
+
+**Zsh:**
+
+```zsh
+# Add to ~/.zshrc
+eval "$(sg completions zsh)"
+```
+
+**Fish:**
+
+```fish
+# Add to ~/.config/fish/config.fish
+sg completions fish | source
+```
+
+**PowerShell:**
+
+```powershell
+# Add to your PowerShell profile
+sg completions powershell | Out-String | Invoke-Expression
+```
+
+Completions support:
+- `sg <TAB>` — list all commands
+- `sg go <TAB>` — list local branches
+- `sg merge <TAB>` — list local branches
+- `sg delete <TAB>` — list local branches
+- `sg help <TAB>` — list all commands
 
 ## Philosophy
 
@@ -77,11 +147,13 @@ sg go main
 - **Simplicity** — small, memorable command set covering daily workflows
 - **Safety** — dangerous operations are excluded until proper safeguards exist
 - **Compatibility** — works with existing Git repos, GitHub, and all remotes
+- **Zero dependencies** — pure Go stdlib, no external packages
 
 ## Requirements
 
 - Git installed and available in `PATH`
 - Go 1.24+ (build only)
+- `gh` CLI (only for `sg pr`)
 
 ## License
 
