@@ -14,22 +14,24 @@ SnapGit (`sg`) is a CLI wrapper around Git that translates simple, intention-bas
 
 ## Install
 
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/ovair/snapgit/main/install.ps1 | iex
+```
+
 **Build from source** (requires Go 1.24+):
 
 ```bash
 git clone https://github.com/ovair/snapgit.git
 cd snapgit
 go build -o sg ./cmd/sg
-```
-
-Move the `sg` binary somewhere in your `PATH`:
-
-```bash
-# Linux / macOS
-sudo mv sg /usr/local/bin/
-
-# Or add to your local bin
-mv sg ~/.local/bin/
 ```
 
 ## Commands
