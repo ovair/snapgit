@@ -3,5 +3,5 @@ package cli
 import "snapgit/internal/git"
 
 func runCreate() error {
-	return git.RunGitCommand("init")
+	return git.Run("init")
 }
