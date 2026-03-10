@@ -618,7 +618,7 @@ func TestRunPR_NoTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Should push first
+	// Should push
 	if len(m.calls) != 1 {
 		t.Fatalf("expected 1 git call, got %d", len(m.calls))
 	}
@@ -627,14 +627,14 @@ func TestRunPR_NoTitle(t *testing.T) {
 		t.Errorf("expected [push -u origin HEAD], got %v", push)
 	}
 
-	// Should create PR with --fill-verbose
-	if len(ext.calls) != 1 {
-		t.Fatalf("expected 1 external call, got %d", len(ext.calls))
+	// First external call: gh auth status, second: gh pr create
+	if len(ext.calls) != 2 {
+		t.Fatalf("expected 2 external calls, got %d", len(ext.calls))
 	}
-	if ext.calls[0].name != "gh" {
-		t.Errorf("expected gh, got %s", ext.calls[0].name)
+	if ext.calls[0].name != "gh" || ext.calls[0].args[0] != "auth" {
+		t.Errorf("expected [gh auth status], got %v %v", ext.calls[0].name, ext.calls[0].args)
 	}
-	ghArgs := ext.calls[0].args
+	ghArgs := ext.calls[1].args
 	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--fill-verbose" {
 		t.Errorf("expected [pr create --fill-verbose], got %v", ghArgs)
 	}
@@ -655,8 +655,8 @@ func TestRunPR_WithTitle(t *testing.T) {
 		t.Errorf("expected push, got %v", m.calls)
 	}
 
-	// Should create PR with --title
-	ghArgs := ext.calls[0].args
+	// ext.calls[0] = gh auth status, ext.calls[1] = gh pr create
+	ghArgs := ext.calls[1].args
 	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--title" || ghArgs[3] != "Add new feature" || ghArgs[4] != "--fill-verbose" {
 		t.Errorf("expected [pr create --title 'Add new feature' --fill-verbose], got %v", ghArgs)
 	}
@@ -676,6 +676,26 @@ func TestRunPR_GhNotInstalled(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "gh CLI is required") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunPR_NotAuthenticated(t *testing.T) {
+	m := withMockGit(t)
+	ext := withMockExternal(t)
+	ext.err = fmt.Errorf("not logged in")
+	withMockLookPath(t)
+	withArgs(t, []string{"sg", "pr"})
+
+	err := runPR()
+	if err == nil {
+		t.Fatal("expected error when gh not authenticated")
+	}
+	if !strings.Contains(err.Error(), "not authenticated") {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// Should NOT have pushed
+	if len(m.calls) != 0 {
+		t.Errorf("should not push when auth fails, got %d git calls", len(m.calls))
 	}
 }
 

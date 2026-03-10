@@ -16,6 +16,11 @@ func runPR() error {
 		return fmt.Errorf("gh CLI is required but not installed (https://cli.github.com)")
 	}
 
+	// Verify gh is authenticated before pushing
+	if err := git.RunExternal("gh", "auth", "status"); err != nil {
+		return fmt.Errorf("gh CLI is not authenticated — run: gh auth login")
+	}
+
 	// Step 1: Push current branch to origin
 	if err := git.Run("push", "-u", "origin", "HEAD"); err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
