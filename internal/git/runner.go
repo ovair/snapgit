@@ -45,7 +45,7 @@ func ExitCode(err error) int {
 // execCmd runs a command with signal forwarding and exit code preservation.
 func execCmd(cmd *exec.Cmd) error {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, forwardedSignals...)
 	defer signal.Stop(sigCh)
 
 	if err := cmd.Start(); err != nil {

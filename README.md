@@ -23,7 +23,7 @@ brew install ovair/tap/sg
 **Linux / macOS (script):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
@@ -45,20 +45,20 @@ go build -o sg ./cmd/sg
 | Command | What it does | Git equivalent |
 |---|---|---|
 | `sg create` | Create a new repo | `git init` |
-| `sg get <url>` | Clone a repo | `git clone <url>` |
+| `sg get <url> [dir]` | Clone a repo | `git clone <url> [dir]` |
 | `sg status` | Show repo status | `git status` |
-| `sg add <file\|.>` | Stage file(s) | `git add <file>` |
+| `sg add <file...>` | Stage file(s) | `git add <file...>` |
 | `sg save "msg"` | Stage all + commit | `git add -A && git commit -m "msg"` |
-| `sg diff` | Show changes | `git diff` |
-| `sg log` | Show history | `git log --oneline --graph --decorate` |
+| `sg diff [staged]` | Show changes (or staged) | `git diff` / `git diff --cached` |
+| `sg log [n]` | Show history (last n) | `git log --oneline --graph --decorate [-n]` |
 | `sg branch` | List branches | `git branch` |
 | `sg new <branch>` | Create + switch branch | `git switch -c <branch>` |
 | `sg go <branch>` | Switch branch | `git switch <branch>` |
 | `sg fetch` | Fetch remote updates | `git fetch` |
 | `sg pull` | Pull remote changes | `git pull` |
 | `sg send` | Push to remote | `git push -u origin HEAD` |
-| `sg undo` | Undo last commit (keep changes) | `git reset --soft HEAD~1` |
-| `sg stash` | Stash working changes | `git stash` |
+| `sg undo [n]` | Undo last n commits (keep changes) | `git reset --soft HEAD~n` |
+| `sg stash ["msg"]` | Stash working changes | `git stash` / `git stash push -m "msg"` |
 | `sg pop` | Restore stashed changes | `git stash pop` |
 | `sg merge <branch>` | Merge a branch | `git merge <branch>` |
 | `sg tag [name]` | List or create tags | `git tag [name]` |
@@ -69,6 +69,9 @@ go build -o sg ./cmd/sg
 | `sg whoami` | Show git user config | `git config user.name / user.email` |
 | `sg remote` | Show remote URLs | `git remote -v` |
 | `sg amend ["msg"]` | Amend last commit | `git commit --amend` |
+| `sg clean [--force]` | Remove untracked files | `git clean -fd` |
+| `sg revert <commit>` | Revert a commit | `git revert <commit>` |
+| `sg cherry-pick <commit>` | Apply commit from another branch | `git cherry-pick <commit>` |
 | `sg release <version>` | Tag and push a version | `git tag <v> && git push origin <v>` |
 | `sg completions <shell>` | Generate shell completions | — |
 
@@ -90,17 +93,41 @@ sg new feature/dark-mode
 # Switch back
 sg go main
 
+# Show last 10 commits
+sg log 10
+
+# View staged changes
+sg diff staged
+
+# Stash with a description
+sg stash "work in progress"
+
+# Undo last 2 commits (keep changes)
+sg undo 2
+
+# Stage multiple files
+sg add main.go utils.go
+
 # Rename your branch
 sg rename feature/dark-theme
 
 # Amend the last commit message
 sg amend "fix: correct login redirect"
 
+# Revert a specific commit
+sg revert abc123
+
+# Clean untracked files
+sg clean
+
 # See who you are
 sg whoami
 
 # Add a pattern to .gitignore
 sg ignore "*.log"
+
+# Release a new version
+sg release v1.0.0
 ```
 
 ## Shell Completions
@@ -146,7 +173,7 @@ Completions support:
 
 - **Human intention over Git mechanics** — commands describe what you want (`save`, `send`, `go`), not Git internals (`checkout`, `reset`, `rebase`)
 - **Simplicity** — small, memorable command set covering daily workflows
-- **Safety** — dangerous operations are excluded until proper safeguards exist
+- **Safety** — dangerous operations require confirmation or explicit flags
 - **Compatibility** — works with existing Git repos, GitHub, and all remotes
 - **Zero dependencies** — pure Go stdlib, no external packages
 

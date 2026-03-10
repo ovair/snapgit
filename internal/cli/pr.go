@@ -3,11 +3,19 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"snapgit/internal/git"
 )
 
+var lookPath = exec.LookPath
+
 func runPR() error {
+	// Check that gh is installed before pushing
+	if _, err := lookPath("gh"); err != nil {
+		return fmt.Errorf("gh CLI is required but not installed (https://cli.github.com)")
+	}
+
 	// Step 1: Push current branch to origin
 	if err := git.Run("push", "-u", "origin", "HEAD"); err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
@@ -16,10 +24,8 @@ func runPR() error {
 	// Step 2: Create PR via gh CLI
 	args := []string{"pr", "create"}
 	if len(os.Args) >= 3 {
-		// sg pr "title" — use provided title, fill body from commits
 		args = append(args, "--title", os.Args[2], "--fill-verbose")
 	} else {
-		// sg pr — interactive mode
 		args = append(args, "--fill-verbose")
 	}
 

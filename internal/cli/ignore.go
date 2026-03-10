@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"snapgit/internal/git"
 )
@@ -18,7 +19,7 @@ func runIgnore() error {
 	if err != nil {
 		return fmt.Errorf("not a git repository")
 	}
-	root = root[:len(root)-1] // trim trailing newline
+	root = strings.TrimSpace(root)
 
 	path := root + "/.gitignore"
 

@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 # SnapGit installer for Linux and macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/ovair/snapgit/main/install.sh | bash
 set -e
 
 REPO="ovair/snapgit"
@@ -32,13 +32,43 @@ fi
 
 echo "Installing SnapGit $VERSION ..."
 
-# Download and extract
-ASSET="sg_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+# Build asset name (strip leading 'v' from version)
+STRIPPED_VERSION="${VERSION#v}"
+ASSET="sg_${STRIPPED_VERSION}_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/$REPO/releases/download/$VERSION/$ASSET"
+CHECKSUMS_URL="https://github.com/$REPO/releases/download/$VERSION/checksums.txt"
 TMP="$(mktemp -d)"
 
 echo "Downloading $ASSET ..."
 curl -fsSL "$URL" -o "$TMP/$ASSET"
+curl -fsSL "$CHECKSUMS_URL" -o "$TMP/checksums.txt"
+
+# Verify checksum
+echo "Verifying checksum ..."
+EXPECTED="$(grep "$ASSET" "$TMP/checksums.txt" | awk '{print $1}')"
+if [ -z "$EXPECTED" ]; then
+    echo "Error: checksum not found for $ASSET"
+    rm -rf "$TMP"
+    exit 1
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL="$(sha256sum "$TMP/$ASSET" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+    ACTUAL="$(shasum -a 256 "$TMP/$ASSET" | awk '{print $1}')"
+else
+    echo "Warning: no sha256sum or shasum found, skipping checksum verification"
+    ACTUAL="$EXPECTED"
+fi
+
+if [ "$ACTUAL" != "$EXPECTED" ]; then
+    echo "Error: checksum mismatch!"
+    echo "  Expected: $EXPECTED"
+    echo "  Got:      $ACTUAL"
+    rm -rf "$TMP"
+    exit 1
+fi
+
 tar -xzf "$TMP/$ASSET" -C "$TMP"
 
 # Install
