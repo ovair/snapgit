@@ -149,6 +149,18 @@ All items below were shipped in v0.3.0:
 - Uses `#!/bin/sh` but `${VERSION#v}` is not guaranteed POSIX
 - Fix: either switch shebang to `#!/bin/bash` or use `echo "$VERSION" | sed 's/^v//'`
 
+### 9. Fix `sg pr` command
+
+**Priority: HIGH**
+
+- Throws an error:
+- PS C:\dev\Code\snapgit> sg pr
+- branch 'claude/optimize-go-project-Ne3xv' set up to track 'origin/claude/optimize-go-project-Ne3xv'.
+- Everything up-to-date
+- To get started with GitHub CLI, please run: gh auth login
+- Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.
+- failed to create pull request: exit status 4
+
 ---
 
 ## v0.4.0 — New Features
@@ -245,15 +257,6 @@ All items below were shipped in v0.3.0:
 - `branchCommands` map in completions.go is hardcoded
 - All 4 shell generators duplicate branch-completing logic
 - Refactor: single source of truth for which commands complete with branches
-
-### 23. sg pr throws error and does not work yet
-
-- PS C:\dev\Code\snapgit> sg pr
-- branch 'claude/optimize-go-project-Ne3xv' set up to track 'origin/claude/optimize-go-project-Ne3xv'.
-- Everything up-to-date
-- To get started with GitHub CLI, please run: gh auth login
-- Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.
-- failed to create pull request: exit status 4
 
 ---
 
