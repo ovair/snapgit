@@ -8,14 +8,20 @@ import (
 )
 
 func runWhoami() error {
-	name, err := git.RunOutput("config", "user.name")
-	if err != nil {
-		return fmt.Errorf("git user.name is not set")
+	name, nameErr := git.RunOutput("config", "user.name")
+	email, emailErr := git.RunOutput("config", "user.email")
+
+	var missing []string
+	if nameErr != nil {
+		missing = append(missing, "user.name")
 	}
-	email, err := git.RunOutput("config", "user.email")
-	if err != nil {
-		return fmt.Errorf("git user.email is not set")
+	if emailErr != nil {
+		missing = append(missing, "user.email")
 	}
+	if len(missing) > 0 {
+		return fmt.Errorf("git config %s not set — run: git config --global %s <value>", strings.Join(missing, " and "), missing[0])
+	}
+
 	fmt.Printf("%s <%s>\n", strings.TrimSpace(name), strings.TrimSpace(email))
 	return nil
 }

@@ -19,13 +19,33 @@ $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/l
 $version = $release.tag_name
 Write-Host "Installing SnapGit $version ..." -ForegroundColor Cyan
 
-# Download
+# Download binary and checksums
 $asset = "sg_$($version.TrimStart('v'))_windows_$arch.zip"
 $url = "https://github.com/$repo/releases/download/$version/$asset"
+$checksumsUrl = "https://github.com/$repo/releases/download/$version/checksums.txt"
 $tmp = Join-Path $env:TEMP $asset
+$tmpChecksums = Join-Path $env:TEMP "sg_checksums.txt"
 
 Write-Host "Downloading $asset ..."
 Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+Invoke-WebRequest -Uri $checksumsUrl -OutFile $tmpChecksums -UseBasicParsing
+
+# Verify checksum
+Write-Host "Verifying checksum ..."
+$expectedLine = Get-Content $tmpChecksums | Where-Object { $_ -match $asset }
+if (-not $expectedLine) {
+    Remove-Item $tmp, $tmpChecksums -ErrorAction SilentlyContinue
+    Write-Error "Checksum not found for $asset"
+    return
+}
+$expectedHash = ($expectedLine -split '\s+')[0]
+$actualHash = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLower()
+if ($actualHash -ne $expectedHash) {
+    Remove-Item $tmp, $tmpChecksums -ErrorAction SilentlyContinue
+    Write-Error "Checksum mismatch! Expected: $expectedHash, Got: $actualHash"
+    return
+}
+Remove-Item $tmpChecksums
 
 # Extract
 if (!(Test-Path $installDir)) {

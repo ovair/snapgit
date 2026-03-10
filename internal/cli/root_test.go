@@ -217,6 +217,19 @@ func TestRunGet(t *testing.T) {
 	}
 }
 
+func TestRunGet_WithDir(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "get", "https://github.com/test/repo", "mydir"})
+
+	if err := runGet(); err != nil {
+		t.Fatal(err)
+	}
+	args := m.calls[0]
+	if args[0] != "clone" || args[1] != "https://github.com/test/repo" || args[2] != "mydir" {
+		t.Errorf("expected [clone url mydir], got %v", args)
+	}
+}
+
 func TestRunGet_NoArgs(t *testing.T) {
 	withMockGit(t)
 	withArgs(t, []string{"sg", "get"})
@@ -246,6 +259,19 @@ func TestRunAdd(t *testing.T) {
 	}
 	if len(m.calls) != 1 || m.calls[0][0] != "add" || m.calls[0][1] != "." {
 		t.Errorf("expected [add .], got %v", m.calls)
+	}
+}
+
+func TestRunAdd_MultipleFiles(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "add", "file1.go", "file2.go", "file3.go"})
+
+	if err := runAdd(); err != nil {
+		t.Fatal(err)
+	}
+	args := m.calls[0]
+	if args[0] != "add" || args[1] != "file1.go" || args[2] != "file2.go" || args[3] != "file3.go" {
+		t.Errorf("expected [add file1.go file2.go file3.go], got %v", args)
 	}
 }
 
@@ -305,16 +331,29 @@ func TestRunSave_StageFailure(t *testing.T) {
 
 func TestRunDiff(t *testing.T) {
 	m := withMockGit(t)
+	withArgs(t, []string{"sg", "diff"})
 	if err := runDiff(); err != nil {
 		t.Fatal(err)
 	}
-	if m.calls[0][0] != "diff" {
+	if len(m.calls[0]) != 1 || m.calls[0][0] != "diff" {
 		t.Errorf("expected [diff], got %v", m.calls)
+	}
+}
+
+func TestRunDiff_Staged(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "diff", "staged"})
+	if err := runDiff(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "diff" || m.calls[0][1] != "--cached" {
+		t.Errorf("expected [diff --cached], got %v", m.calls[0])
 	}
 }
 
 func TestRunLog(t *testing.T) {
 	m := withMockGit(t)
+	withArgs(t, []string{"sg", "log"})
 	if err := runLog(); err != nil {
 		t.Fatal(err)
 	}
@@ -326,6 +365,29 @@ func TestRunLog(t *testing.T) {
 		if m.calls[0][i] != arg {
 			t.Errorf("arg[%d] = %q, want %q", i, m.calls[0][i], arg)
 		}
+	}
+}
+
+func TestRunLog_WithN(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "log", "10"})
+	if err := runLog(); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.calls[0]) != 5 {
+		t.Fatalf("expected 5 args, got %v", m.calls[0])
+	}
+	if m.calls[0][4] != "-10" {
+		t.Errorf("expected -10, got %s", m.calls[0][4])
+	}
+}
+
+func TestRunLog_InvalidN(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "log", "abc"})
+	err := runLog()
+	if err == nil {
+		t.Fatal("expected error for invalid n")
 	}
 }
 
@@ -416,6 +478,7 @@ func TestRunSend(t *testing.T) {
 
 func TestRunUndo(t *testing.T) {
 	m := withMockGit(t)
+	withArgs(t, []string{"sg", "undo"})
 	if err := runUndo(); err != nil {
 		t.Fatal(err)
 	}
@@ -427,13 +490,58 @@ func TestRunUndo(t *testing.T) {
 	}
 }
 
+func TestRunUndo_WithN(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "undo", "3"})
+	if err := runUndo(); err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{"reset", "--soft", "HEAD~3"}
+	for i, arg := range expected {
+		if m.calls[0][i] != arg {
+			t.Errorf("arg[%d] = %q, want %q", i, m.calls[0][i], arg)
+		}
+	}
+}
+
+func TestRunUndo_InvalidN(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "undo", "abc"})
+	err := runUndo()
+	if err == nil {
+		t.Fatal("expected error for invalid n")
+	}
+}
+
+func TestRunUndo_ZeroN(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "undo", "0"})
+	err := runUndo()
+	if err == nil {
+		t.Fatal("expected error for zero n")
+	}
+}
+
 func TestRunStash(t *testing.T) {
 	m := withMockGit(t)
+	withArgs(t, []string{"sg", "stash"})
 	if err := runStash(); err != nil {
 		t.Fatal(err)
 	}
-	if m.calls[0][0] != "stash" {
+	if len(m.calls[0]) != 1 || m.calls[0][0] != "stash" {
 		t.Errorf("expected [stash], got %v", m.calls)
+	}
+}
+
+func TestRunStash_WithMessage(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "stash", "work in progress"})
+	if err := runStash(); err != nil {
+		t.Fatal(err)
+	}
+	args := m.calls[0]
+	if args[0] != "stash" || args[1] != "push" || args[2] != "-m" || args[3] != "work in progress" {
+		t.Errorf("expected [stash push -m 'work in progress'], got %v", args)
 	}
 }
 
@@ -493,16 +601,24 @@ func TestRunTag_Create(t *testing.T) {
 	}
 }
 
+func withMockLookPath(t *testing.T) {
+	t.Helper()
+	orig := lookPath
+	t.Cleanup(func() { lookPath = orig })
+	lookPath = func(file string) (string, error) { return "/usr/bin/" + file, nil }
+}
+
 func TestRunPR_NoTitle(t *testing.T) {
 	m := withMockGit(t)
 	ext := withMockExternal(t)
+	withMockLookPath(t)
 	withArgs(t, []string{"sg", "pr"})
 
 	if err := runPR(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Should push first
+	// Should push
 	if len(m.calls) != 1 {
 		t.Fatalf("expected 1 git call, got %d", len(m.calls))
 	}
@@ -511,14 +627,14 @@ func TestRunPR_NoTitle(t *testing.T) {
 		t.Errorf("expected [push -u origin HEAD], got %v", push)
 	}
 
-	// Should create PR with --fill-verbose
-	if len(ext.calls) != 1 {
-		t.Fatalf("expected 1 external call, got %d", len(ext.calls))
+	// First external call: gh auth status, second: gh pr create
+	if len(ext.calls) != 2 {
+		t.Fatalf("expected 2 external calls, got %d", len(ext.calls))
 	}
-	if ext.calls[0].name != "gh" {
-		t.Errorf("expected gh, got %s", ext.calls[0].name)
+	if ext.calls[0].name != "gh" || ext.calls[0].args[0] != "auth" {
+		t.Errorf("expected [gh auth status], got %v %v", ext.calls[0].name, ext.calls[0].args)
 	}
-	ghArgs := ext.calls[0].args
+	ghArgs := ext.calls[1].args
 	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--fill-verbose" {
 		t.Errorf("expected [pr create --fill-verbose], got %v", ghArgs)
 	}
@@ -527,6 +643,7 @@ func TestRunPR_NoTitle(t *testing.T) {
 func TestRunPR_WithTitle(t *testing.T) {
 	m := withMockGit(t)
 	ext := withMockExternal(t)
+	withMockLookPath(t)
 	withArgs(t, []string{"sg", "pr", "Add new feature"})
 
 	if err := runPR(); err != nil {
@@ -538,10 +655,47 @@ func TestRunPR_WithTitle(t *testing.T) {
 		t.Errorf("expected push, got %v", m.calls)
 	}
 
-	// Should create PR with --title
-	ghArgs := ext.calls[0].args
+	// ext.calls[0] = gh auth status, ext.calls[1] = gh pr create
+	ghArgs := ext.calls[1].args
 	if ghArgs[0] != "pr" || ghArgs[1] != "create" || ghArgs[2] != "--title" || ghArgs[3] != "Add new feature" || ghArgs[4] != "--fill-verbose" {
 		t.Errorf("expected [pr create --title 'Add new feature' --fill-verbose], got %v", ghArgs)
+	}
+}
+
+func TestRunPR_GhNotInstalled(t *testing.T) {
+	withMockGit(t)
+	withMockExternal(t)
+	withArgs(t, []string{"sg", "pr"})
+	orig := lookPath
+	t.Cleanup(func() { lookPath = orig })
+	lookPath = func(file string) (string, error) { return "", fmt.Errorf("not found") }
+
+	err := runPR()
+	if err == nil {
+		t.Fatal("expected error when gh not installed")
+	}
+	if !strings.Contains(err.Error(), "gh CLI is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunPR_NotAuthenticated(t *testing.T) {
+	m := withMockGit(t)
+	ext := withMockExternal(t)
+	ext.err = fmt.Errorf("not logged in")
+	withMockLookPath(t)
+	withArgs(t, []string{"sg", "pr"})
+
+	err := runPR()
+	if err == nil {
+		t.Fatal("expected error when gh not authenticated")
+	}
+	if !strings.Contains(err.Error(), "not authenticated") {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// Should NOT have pushed
+	if len(m.calls) != 0 {
+		t.Errorf("should not push when auth fails, got %d git calls", len(m.calls))
 	}
 }
 
@@ -549,6 +703,7 @@ func TestRunPR_PushFails(t *testing.T) {
 	m := withMockGit(t)
 	m.err = fmt.Errorf("push failed")
 	withMockExternal(t)
+	withMockLookPath(t)
 	withArgs(t, []string{"sg", "pr"})
 
 	err := runPR()
@@ -624,6 +779,20 @@ func TestRunDelete_CurrentBranch(t *testing.T) {
 	}
 }
 
+func TestRunDelete_EmptyBranch(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "")
+	withArgs(t, []string{"sg", "delete", "feature"})
+
+	err := runDelete()
+	if err == nil {
+		t.Fatal("expected error when branch output is empty")
+	}
+	if !strings.Contains(err.Error(), "empty result") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 // --- ignore tests ---
 
 func TestRunIgnore(t *testing.T) {
@@ -687,6 +856,45 @@ func TestRunWhoami(t *testing.T) {
 	})
 	if !strings.Contains(out, "Test User") || !strings.Contains(out, "test@example.com") {
 		t.Errorf("expected name and email, got: %s", out)
+	}
+}
+
+func TestRunWhoami_BothMissing(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "")
+	git.RunOutput = func(args ...string) (string, error) {
+		return "", fmt.Errorf("not set")
+	}
+	withArgs(t, []string{"sg", "whoami"})
+
+	err := runWhoami()
+	if err == nil {
+		t.Fatal("expected error when both configs missing")
+	}
+	if !strings.Contains(err.Error(), "user.name") || !strings.Contains(err.Error(), "user.email") {
+		t.Errorf("expected both missing fields reported, got: %v", err)
+	}
+}
+
+func TestRunWhoami_EmailMissing(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "")
+	callCount := 0
+	git.RunOutput = func(args ...string) (string, error) {
+		callCount++
+		if callCount == 1 {
+			return "Test User\n", nil
+		}
+		return "", fmt.Errorf("not set")
+	}
+	withArgs(t, []string{"sg", "whoami"})
+
+	err := runWhoami()
+	if err == nil {
+		t.Fatal("expected error when email missing")
+	}
+	if !strings.Contains(err.Error(), "user.email") {
+		t.Errorf("expected user.email mentioned, got: %v", err)
 	}
 }
 
@@ -759,6 +967,22 @@ func TestRunRelease_NoArgs(t *testing.T) {
 	err := runRelease()
 	if err == nil {
 		t.Fatal("expected error when no version provided")
+	}
+}
+
+func TestRunRelease_InvalidVersion(t *testing.T) {
+	withMockGit(t)
+	for _, v := range []string{"oops", "1.0.0", "vx.y.z", "v1.0"} {
+		t.Run(v, func(t *testing.T) {
+			withArgs(t, []string{"sg", "release", v})
+			err := runRelease()
+			if err == nil {
+				t.Fatalf("expected error for invalid version %q", v)
+			}
+			if !strings.Contains(err.Error(), "vX.Y.Z") {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
@@ -845,6 +1069,101 @@ func TestRunCompletions_NoArgs(t *testing.T) {
 	}
 }
 
+// --- clean tests ---
+
+func TestRunClean_Force(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "clean", "--force"})
+
+	if err := runClean(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "clean" || m.calls[0][1] != "-fd" {
+		t.Errorf("expected [clean -fd], got %v", m.calls[0])
+	}
+}
+
+func TestRunClean_NothingToClean(t *testing.T) {
+	withMockGit(t)
+	withMockGitOutput(t, "")
+	withArgs(t, []string{"sg", "clean"})
+
+	out := captureStdout(t, func() {
+		if err := runClean(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "nothing to clean") {
+		t.Errorf("expected 'nothing to clean', got: %s", out)
+	}
+}
+
+// --- revert tests ---
+
+func TestRunRevert(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "revert", "abc123"})
+
+	if err := runRevert(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "revert" || m.calls[0][1] != "abc123" {
+		t.Errorf("expected [revert abc123], got %v", m.calls[0])
+	}
+}
+
+func TestRunRevert_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "revert"})
+
+	err := runRevert()
+	if err == nil {
+		t.Fatal("expected error when no commit provided")
+	}
+}
+
+// --- cherry-pick tests ---
+
+func TestRunCherryPick(t *testing.T) {
+	m := withMockGit(t)
+	withArgs(t, []string{"sg", "cherry-pick", "abc123"})
+
+	if err := runCherryPick(); err != nil {
+		t.Fatal(err)
+	}
+	if m.calls[0][0] != "cherry-pick" || m.calls[0][1] != "abc123" {
+		t.Errorf("expected [cherry-pick abc123], got %v", m.calls[0])
+	}
+}
+
+func TestRunCherryPick_NoArgs(t *testing.T) {
+	withMockGit(t)
+	withArgs(t, []string{"sg", "cherry-pick"})
+
+	err := runCherryPick()
+	if err == nil {
+		t.Fatal("expected error when no commit provided")
+	}
+}
+
+// --- ignore Windows newline test ---
+
+func TestRunIgnore_WindowsNewline(t *testing.T) {
+	dir := t.TempDir()
+	withMockGit(t)
+	withMockGitOutput(t, dir+"\r\n")
+	withArgs(t, []string{"sg", "ignore", "*.tmp"})
+
+	out := captureStdout(t, func() {
+		if err := runIgnore(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "*.tmp") {
+		t.Errorf("expected confirmation, got: %s", out)
+	}
+}
+
 // --- All commands registered ---
 
 func TestAllCommandsRegistered(t *testing.T) {
@@ -853,6 +1172,7 @@ func TestAllCommandsRegistered(t *testing.T) {
 		"branch", "new", "go", "fetch", "pull", "send",
 		"undo", "stash", "pop", "merge", "tag", "pr",
 		"rename", "delete", "ignore", "whoami", "remote", "amend",
+		"clean", "revert", "cherry-pick",
 		"release", "completions",
 	}
 	for _, name := range expected {

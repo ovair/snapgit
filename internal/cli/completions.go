@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -39,12 +40,19 @@ var branchCommands = map[string]bool{
 	"go": true, "merge": true, "delete": true,
 }
 
+// branchCmdPattern returns a shell-friendly pattern for branch-completing commands.
+func branchCmdPattern(sep string) string {
+	cmds := make([]string, 0, len(branchCommands))
+	for cmd := range branchCommands {
+		cmds = append(cmds, cmd)
+	}
+	sort.Strings(cmds)
+	return strings.Join(cmds, sep)
+}
+
 func bashCompletion() string {
 	cmds := strings.Join(commandNames(), " ")
-	branchCmds := make([]string, 0)
-	for cmd := range branchCommands {
-		branchCmds = append(branchCmds, cmd)
-	}
+	pattern := branchCmdPattern("|")
 
 	return fmt.Sprintf(`_sg_completions() {
     local cur prev commands
@@ -59,7 +67,7 @@ func bashCompletion() string {
     fi
 
     case "${prev}" in
-        go|merge|delete)
+        %s)
             local branches
             branches=$(git branch --format='%%(refname:short)' 2>/dev/null)
             COMPREPLY=($(compgen -W "${branches}" -- "${cur}"))
@@ -73,7 +81,7 @@ func bashCompletion() string {
 }
 
 complete -F _sg_completions sg
-`, cmds)
+`, cmds, pattern)
 }
 
 func zshCompletion() string {
@@ -85,6 +93,8 @@ func zshCompletion() string {
 	cmdList.WriteString("        'help:Show help for a command'\n")
 	cmdList.WriteString("        'version:Show version'\n")
 	cmdList.WriteString("        'completions:Generate shell completions'\n")
+
+	pattern := branchCmdPattern("|")
 
 	return fmt.Sprintf(`#compdef sg
 
@@ -103,7 +113,7 @@ _sg() {
             ;;
         args)
             case $words[1] in
-                go|merge|delete)
+                %s)
                     local branches
                     branches=(${(f)"$(git branch --format='%%(refname:short)' 2>/dev/null)"})
                     _describe -t branches 'branch' branches
@@ -117,7 +127,7 @@ _sg() {
 }
 
 _sg "$@"
-`, cmdList.String())
+`, cmdList.String(), pattern)
 }
 
 func fishCompletion() string {
@@ -133,18 +143,31 @@ func fishCompletion() string {
 	b.WriteString("complete -c sg -n '__fish_use_subcommand' -a 'version' -d 'Show version'\n")
 	b.WriteString("complete -c sg -n '__fish_use_subcommand' -a 'completions' -d 'Generate shell completions'\n")
 	b.WriteString("\n# Branch completions\n")
+	cmds := make([]string, 0, len(branchCommands))
 	for cmd := range branchCommands {
+		cmds = append(cmds, cmd)
+	}
+	sort.Strings(cmds)
+	for _, cmd := range cmds {
 		b.WriteString(fmt.Sprintf("complete -c sg -n '__fish_seen_subcommand_from %s' -a '(git branch --format=\"%%(refname:short)\" 2>/dev/null)'\n", cmd))
 	}
 	b.WriteString("\n# Help completes command names\n")
-	cmds := strings.Join(commandNames(), " ")
-	b.WriteString(fmt.Sprintf("complete -c sg -n '__fish_seen_subcommand_from help' -a '%s'\n", cmds))
+	allCmds := strings.Join(commandNames(), " ")
+	b.WriteString(fmt.Sprintf("complete -c sg -n '__fish_seen_subcommand_from help' -a '%s'\n", allCmds))
 
 	return b.String()
 }
 
 func powershellCompletion() string {
-	cmds := strings.Join(commandNames(), "', '")
+	allCmds := strings.Join(commandNames(), "', '")
+	// Build branch commands array for PowerShell
+	cmds := make([]string, 0, len(branchCommands))
+	for cmd := range branchCommands {
+		cmds = append(cmds, "'"+cmd+"'")
+	}
+	sort.Strings(cmds)
+	psBranchCmds := strings.Join(cmds, ", ")
+
 	return fmt.Sprintf(`Register-ArgumentCompleter -CommandName sg -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     $commands = @('%s')
@@ -159,7 +182,7 @@ func powershellCompletion() string {
 
     $subcommand = $args[1].ToString()
     switch ($subcommand) {
-        { $_ -in @('go', 'merge', 'delete') } {
+        { $_ -in @(%s) } {
             git branch --format='%%(refname:short)' 2>$null | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
                 [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
             }
@@ -171,5 +194,5 @@ func powershellCompletion() string {
         }
     }
 }
-`, cmds)
+`, allCmds, psBranchCmds)
 }

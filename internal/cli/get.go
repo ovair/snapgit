@@ -8,7 +8,8 @@ import (
 
 func runGet() error {
 	if len(os.Args) < 3 {
-		return fmt.Errorf("usage: sg get <url>")
+		return fmt.Errorf("usage: sg get <url> [directory]")
 	}
-	return git.Run("clone", os.Args[2])
+	args := append([]string{"clone"}, os.Args[2:]...)
+	return git.Run(args...)
 }

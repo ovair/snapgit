@@ -19,7 +19,11 @@ func runDelete() error {
 	if err != nil {
 		return fmt.Errorf("failed to determine current branch: %w", err)
 	}
-	if strings.TrimSpace(current) == branch {
+	current = strings.TrimSpace(current)
+	if current == "" {
+		return fmt.Errorf("failed to determine current branch: empty result")
+	}
+	if current == branch {
 		return fmt.Errorf("cannot delete the current branch %q — switch to another branch first", branch)
 	}
 
